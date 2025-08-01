@@ -127,6 +127,64 @@ app.get("/", (req, res) => {
   res.send("✅ VERIS Search Backend is running!");
 });
 
+// ✅ Diagnostic health check
+app.get('/healthz', (req, res) => {
+  res.json({
+    status: 'ok',
+    mongoState: mongoose.connection.readyState, // 1 = connected
+    db: mongoose.connection.name,
+    collection: Incident.collection.name
+  });
+});
+
+// ✅ List your available collections + sample doc
+app.get('/__debug', async (req, res) => {
+  try {
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const names = collections.map(c => c.name).sort();
+    const count = await Incident.estimatedDocumentCount();
+    const sample = await Incident.findOne({}, { _id: 0 }).lean();
+
+    res.json({
+      modelCollection: Incident.collection.name,
+      allCollections: names,
+      modelCount: count,
+      sampleKeys: sample ? Object.keys(sample) : null,
+      sampleSummary: sample?.summary || null
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ✅ Pull real filter values from data
+app.get('/__distinct', async (req, res) => {
+  try {
+    const actors = await Promise.all([
+      Incident.distinct("actor.external.variety"),
+      Incident.distinct("actor.internal.variety"),
+      Incident.distinct("actor.partner.variety")
+    ]);
+    const actions = await Promise.all([
+      Incident.distinct("action.hacking.variety"),
+      Incident.distinct("action.misuse.variety"),
+      Incident.distinct("action.social.variety"),
+      Incident.distinct("action.physical.variety"),
+      Incident.distinct("action.malware.variety")
+    ]);
+    const assets = await Incident.distinct("asset.assets.variety");
+
+    res.json({
+      actors: [...new Set(actors.flat().filter(Boolean))].sort(),
+      actions: [...new Set(actions.flat().filter(Boolean))].sort(),
+      assets: [...new Set(assets.filter(Boolean))].sort()
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server is listening on port ${PORT}`);
