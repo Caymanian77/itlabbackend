@@ -22,55 +22,68 @@ mongoose.connect(process.env.MONGO_URI)
 // Flexible schema for VERIS incidents
 const Incident = mongoose.model('Incident', new mongoose.Schema({}, { strict: false }));
 
-// Search API
 app.get('/search', async (req, res) => {
   const { q, actor, action, asset } = req.query;
   const query = [];
 
-  // Full-text keyword search
+  // Full-text search
   if (q) {
     query.push({
       $or: [
-        { "summary": { $regex: q, $options: "i" } },
-        { "incident_id": { $regex: q, $options: "i" } },
+        { summary: { $regex: q, $options: "i" } },
+        { incident_id: { $regex: q, $options: "i" } },
         { "victim.name": { $regex: q, $options: "i" } },
         { "victim.industry": { $regex: q, $options: "i" } },
         { "victim.country": { $regex: q, $options: "i" } },
-        { "victim.state": { $regex: q, $options: "i" } },
-        { "reference": { $regex: q, $options: "i" } },
-        { "confidence": { $regex: q, $options: "i" } },
-        { "targeted": { $regex: q, $options: "i" } },
-        { "security_incident": { $regex: q, $options: "i" } }
+        { reference: { $regex: q, $options: "i" } },
+        { confidence: { $regex: q, $options: "i" } },
+        { targeted: { $regex: q, $options: "i" } },
+        { security_incident: { $regex: q, $options: "i" } }
       ]
     });
   }
 
-  // Dropdown filters
+  // Actor Filter (covers external, internal, partner)
   if (actor) {
-    query.push({ "actor.external.variety": { $regex: actor, $options: "i" } });
+    query.push({
+      $or: [
+        { "actor.external.variety": { $regex: actor, $options: "i" } },
+        { "actor.internal.variety": { $regex: actor, $options: "i" } },
+        { "actor.partner.variety": { $regex: actor, $options: "i" } }
+      ]
+    });
   }
+
+  // Action Filter (cover all action types)
   if (action) {
-    query.push({ "action.hacking.variety": { $regex: action, $options: "i" } });
+    query.push({
+      $or: [
+        { "action.hacking.variety": { $regex: action, $options: "i" } },
+        { "action.malware.variety": { $regex: action, $options: "i" } },
+        { "action.social.variety": { $regex: action, $options: "i" } },
+        { "action.misuse.variety": { $regex: action, $options: "i" } },
+        { "action.physical.variety": { $regex: action, $options: "i" } }
+      ]
+    });
   }
+
+  // Asset Filter (correct array structure)
   if (asset) {
-    query.push({ "asset.assets.variety": { $regex: asset, $options: "i" } });
+    query.push({
+      "asset.assets": {
+        $elemMatch: {
+          variety: { $regex: asset, $options: "i" }
+        }
+      }
+    });
   }
 
   try {
+    console.log("Running query:", JSON.stringify(query, null, 2)); // for debugging
     const results = await Incident.find(query.length ? { $and: query } : {}).limit(50);
     res.json(results);
   } catch (err) {
-    console.error("❌ Search error:", err.message);
+    console.error("Search error:", err.message);
     res.status(500).json({ error: "Search failed", details: err.message });
   }
-});
-
-// Default root route (optional)
-app.get("/", (req, res) => {
-  res.send("✅ VERIS Search Backend is running!");
-});
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server is listening on port ${PORT}`);
 });
