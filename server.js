@@ -1,3 +1,4 @@
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -5,6 +6,9 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+
+const COLLECTION = process.env.MONGO_COLLECTION || "veris_incidents";
 
 // Middleware
 app.use(cors());
@@ -20,7 +24,11 @@ mongoose.connect(process.env.MONGO_URI)
   });
 
 // Flexible schema for VERIS incidents
-const Incident = mongoose.model('Incident', new mongoose.Schema({}, { strict: false }));
+const Incident = mongoose.model(
+  "Incident",
+  new mongoose.Schema({}, { strict: false }),
+  COLLECTION
+);
 
 app.get('/search', async (req, res) => {
   const { q, actor, action, asset } = req.query;
