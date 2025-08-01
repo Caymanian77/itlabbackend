@@ -78,12 +78,21 @@ app.get('/search', async (req, res) => {
     });
   }
 
-  try {
-    console.log("Running query:", JSON.stringify(query, null, 2)); // for debugging
+ try {
     const results = await Incident.find(query.length ? { $and: query } : {}).limit(50);
     res.json(results);
   } catch (err) {
-    console.error("Search error:", err.message);
+    console.error("❌ Search error:", err.message);
     res.status(500).json({ error: "Search failed", details: err.message });
   }
+});
+
+// Default root route (optional)
+app.get("/", (req, res) => {
+  res.send("✅ VERIS Search Backend is running!");
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server is listening on port ${PORT}`);
 });
