@@ -34,7 +34,7 @@ app.get('/search', async (req, res) => {
   const { q, actor, action, asset } = req.query;
   const query = [];
 
-  // Text query - broad match across key fields
+  // Free-text search across multiple fields
   if (q) {
     query.push({
       $or: [
@@ -50,31 +50,31 @@ app.get('/search', async (req, res) => {
     });
   }
 
-  // Match actor value across all known actor paths
+  // Actor filter (array fields)
   if (actor) {
     query.push({
       $or: [
-        { "actor.external.variety": actor },
-        { "actor.internal.variety": actor },
-        { "actor.partner.variety": actor }
+        { "actor.external.variety": { $in: [actor] } },
+        { "actor.internal.variety": { $in: [actor] } },
+        { "actor.partner.variety": { $in: [actor] } }
       ]
     });
   }
 
-  // Match action value across all action types
+  // Action filter (from multiple action types)
   if (action) {
     query.push({
       $or: [
-        { "action.hacking.variety": action },
-        { "action.misuse.variety": action },
-        { "action.social.variety": action },
-        { "action.physical.variety": action },
-        { "action.malware.variety": action }
+        { "action.hacking.variety": { $in: [action] } },
+        { "action.misuse.variety": { $in: [action] } },
+        { "action.social.variety": { $in: [action] } },
+        { "action.physical.variety": { $in: [action] } },
+        { "action.malware.variety": { $in: [action] } }
       ]
     });
   }
 
-  // Match asset value from asset.assets[].variety
+  // Asset filter (from array of objects)
   if (asset) {
     query.push({
       "asset.assets": {
@@ -86,14 +86,14 @@ app.get('/search', async (req, res) => {
   }
 
   try {
-    const results = await Incident.find(query.length ? { $and: query } : {}).limit(50);
+    const mongoQuery = query.length ? { $and: query } : {};
+    const results = await Incident.find(mongoQuery).limit(50).lean();
     res.json(results);
   } catch (err) {
-    console.error("Search failed:", err);
+    console.error("Search error:", err.message);
     res.status(500).json({ error: "Search failed", details: err.message });
   }
 });
-
 
 app.get('/filters', async (req, res) => {
   try {
