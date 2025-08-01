@@ -26,63 +26,62 @@ app.get('/search', async (req, res) => {
   const { q, actor, action, asset } = req.query;
   const query = [];
 
-  // Full-text search
+  // Text query - broad match across key fields
   if (q) {
     query.push({
       $or: [
         { summary: { $regex: q, $options: "i" } },
         { incident_id: { $regex: q, $options: "i" } },
         { "victim.name": { $regex: q, $options: "i" } },
-        { "victim.industry": { $regex: q, $options: "i" } },
         { "victim.country": { $regex: q, $options: "i" } },
+        { "victim.industry": { $regex: q, $options: "i" } },
         { reference: { $regex: q, $options: "i" } },
         { confidence: { $regex: q, $options: "i" } },
-        { targeted: { $regex: q, $options: "i" } },
-        { security_incident: { $regex: q, $options: "i" } }
+        { targeted: { $regex: q, $options: "i" } }
       ]
     });
   }
 
-  // Actor Filter (covers external, internal, partner)
+  // Match actor value across all known actor paths
   if (actor) {
     query.push({
       $or: [
-        { "actor.external.variety": { $regex: actor, $options: "i" } },
-        { "actor.internal.variety": { $regex: actor, $options: "i" } },
-        { "actor.partner.variety": { $regex: actor, $options: "i" } }
+        { "actor.external.variety": actor },
+        { "actor.internal.variety": actor },
+        { "actor.partner.variety": actor }
       ]
     });
   }
 
-  // Action Filter (cover all action types)
+  // Match action value across all action types
   if (action) {
     query.push({
       $or: [
-        { "action.hacking.variety": { $regex: action, $options: "i" } },
-        { "action.malware.variety": { $regex: action, $options: "i" } },
-        { "action.social.variety": { $regex: action, $options: "i" } },
-        { "action.misuse.variety": { $regex: action, $options: "i" } },
-        { "action.physical.variety": { $regex: action, $options: "i" } }
+        { "action.hacking.variety": action },
+        { "action.misuse.variety": action },
+        { "action.social.variety": action },
+        { "action.physical.variety": action },
+        { "action.malware.variety": action }
       ]
     });
   }
 
-  // Asset Filter (correct array structure)
+  // Match asset value from asset.assets[].variety
   if (asset) {
     query.push({
       "asset.assets": {
         $elemMatch: {
-          variety: { $regex: asset, $options: "i" }
+          variety: asset
         }
       }
     });
   }
 
- try {
+  try {
     const results = await Incident.find(query.length ? { $and: query } : {}).limit(50);
     res.json(results);
   } catch (err) {
-    console.error("❌ Search error:", err.message);
+    console.error("Search failed:", err);
     res.status(500).json({ error: "Search failed", details: err.message });
   }
 });
