@@ -87,6 +87,34 @@ app.get('/search', async (req, res) => {
   }
 });
 
+
+app.get('/filters', async (req, res) => {
+  try {
+    const actors = await Promise.all([
+      Incident.distinct("actor.external.variety"),
+      Incident.distinct("actor.internal.variety"),
+      Incident.distinct("actor.partner.variety")
+    ]);
+    const actions = await Promise.all([
+      Incident.distinct("action.misuse.variety"),
+      Incident.distinct("action.malware.variety"),
+      Incident.distinct("action.hacking.variety"),
+      Incident.distinct("action.social.variety"),
+      Incident.distinct("action.physical.variety")
+    ]);
+    const assets = await Incident.distinct("asset.assets.variety");
+
+    res.json({
+      actors: [...new Set(actors.flat().filter(Boolean))],
+      actions: [...new Set(actions.flat().filter(Boolean))],
+      assets: [...new Set(assets.filter(Boolean))]
+    });
+  } catch (err) {
+    console.error("Filter load error:", err.message);
+    res.status(500).json({ error: "Failed to load filters" });
+  }
+});
+
 // Default root route (optional)
 app.get("/", (req, res) => {
   res.send("✅ VERIS Search Backend is running!");
