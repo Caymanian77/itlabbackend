@@ -4,26 +4,30 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); // Serve index.html
+app.use(express.static('public')); // Serve index.html if you have one
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    process.exit(1); // Exit if DB fails to connect
+  });
 
-// Use a flexible schema
+// Flexible schema for VERIS incidents
 const Incident = mongoose.model('Incident', new mongoose.Schema({}, { strict: false }));
 
-// Search route
+// Search API
 app.get('/search', async (req, res) => {
   const { q, actor, action, asset } = req.query;
-
   const query = [];
 
-  // Free-text keyword search across common fields
+  // Full-text keyword search
   if (q) {
     query.push({
       $or: [
@@ -41,7 +45,7 @@ app.get('/search', async (req, res) => {
     });
   }
 
-  // Optional dropdown filters (if you want to keep these)
+  // Dropdown filters
   if (actor) {
     query.push({ "actor.external.variety": { $regex: actor, $options: "i" } });
   }
@@ -56,6 +60,17 @@ app.get('/search', async (req, res) => {
     const results = await Incident.find(query.length ? { $and: query } : {}).limit(50);
     res.json(results);
   } catch (err) {
+    console.error("❌ Search error:", err.message);
     res.status(500).json({ error: "Search failed", details: err.message });
   }
+});
+
+// Default root route (optional)
+app.get("/", (req, res) => {
+  res.send("✅ VERIS Search Backend is running!");
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server is listening on port ${PORT}`);
 });
